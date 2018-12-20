@@ -1,0 +1,124 @@
+---
+title: "Programming Assignment 3"
+author: "Kevin Ismantara"
+date: '2018-11-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("stats")
+library("randomForest")
+library("pROC")
+library("ggplot2")
+library("caret")
+```
+
+Import data: 
+```{r}
+newTrainData <- read.csv(file="./Titanic.Train.csv", header=TRUE, sep=",", na.strings=c("","NA"))
+newTestData <- read.csv(file="./Titanic.Test.csv", header=TRUE, sep=",", na.strings=c("","NA"))
+newTrainData$survived <- factor(newTrainData$survived)
+newTestData$survived <- factor(newTestData$survived)
+```
+
+Task 1: Learn & Plot ROC curve of random forest
+```{r}
+forestLearn <- randomForest(survived ~., data=newTrainData, ntree=100)
+prediction <- predict(forestLearn, newTestData, type="class")
+correct <- newTestData$survived 
+confusionMatrix <- table(correct, prediction)
+accuracyScore <- mean(correct == prediction)
+rocCurve <- roc(newTrainData$survived, forestLearn$votes[,2])
+plot(rocCurve)
+aucForest <- auc(rocCurve)
+print(paste0("Area Under Curve: ", aucForest))
+```
+
+Task 2: Analyze the importance of the different attributes
+```{r}
+importanceOfAttributes <- importance(forestLearn)
+importancePlot <- varImpPlot(forestLearn)
+```
+Based on the plot above, the top 3 most important attributes when determining survival are in the following order of significance: Sex, Age, Fare
+
+Task 3: Learn Regression Model
+```{r}
+library("glmnet")
+library("e1071")
+newTrain <- newTrainData[c("survived", "pclass", "sex", "age", "sibsp",
+"parch", "fare")]
+
+newTest <- newTestData[c("survived", "pclass", "sex", "age", "sibsp","parch", 
+"fare")]
+regressionModel <- train(survived ~., data=newTrain, method="glmnet")
+summary(regressionModel)
+```
+
+Task 4: Predict using regression model, plot confusion matrix, accuracy
+```{r}
+library("ROCR")
+regressionPrediction <- predict(regressionModel, newTest, probability=TRUE)
+numericRegressionPrediction <- prediction(as.numeric(regressionPrediction), as.numeric(newTest$survived))
+rocRegression <- performance(numericRegressionPrediction, measure = "tpr", x.measure="fpr")
+plot(rocRegression)
+performance(numericRegressionPrediction, measure="auc")
+
+correctRegression <- newTest$survived 
+confusionMatrixRegression <- table(correctRegression, regressionPrediction)
+print(confusionMatrixRegression)
+correct <- newTest$survived 
+
+accuracyScore <- mean(correct == regressionPrediction)
+print(paste0("Accuracy score of logistic regression: ", accuracyScore))
+```
+
+Task 5: SVM
+```{r}
+linearTune <- tune.svm(survived ~., data=newTrain, kernel="linear", cost = 3^(0:2), gamma=3^(-2:0))
+summary(linearTune)
+linearTuneBestTrain <- svm(survived ~., data=newTrain, kernel="linear", cost = 3, gamma=0.33)
+linearTuneBestTest <- svm(survived ~., data=newTest, kernel="linear", cost = 3, gamma=0.33)
+                      
+radialTune <- tune.svm(survived ~., data=newTrain, kernel="radial", cost = 3^(0:2), gamma=3^(-2:0))
+summary(radialTune)
+radialTuneBestTrain <- svm(survived ~., data=newTrain, kernel="radial", cost = 1, gamma=0.11)
+radialTuneBestTest <- svm(survived ~., data=newTest, kernel="radial", cost = 1, gamma=0.11)
+```
+
+Task 6: Predict SVM
+```{r}
+library("ROCR")
+linearSVMPredict <- predict(linearTuneBestTrain, newTest)
+numericLinearSVMPrediction <- prediction(as.numeric(linearSVMPredict), as.numeric(newTest$survived))
+rocLinear <- performance(numericLinearSVMPrediction, measure = "tpr", x.measure="fpr")
+plot(rocLinear)
+performance(numericLinearSVMPrediction, measure="auc")
+
+correctRegression <- newTest$survived 
+confusionMatrixLinearSVM <- table(correctRegression, linearSVMPredict)
+print(confusionMatrixLinearSVM)
+correct <- newTest$survived 
+
+accuracyScoreLinearSVM <- mean(correct == linearSVMPredict)
+print(paste0("Accuracy score of SVM with linear kernel: ", accuracyScoreLinearSVM))
+
+
+radialSVMPredict <- predict(radialTuneBestTrain, newTest)
+numericRadialSVMPrediction <- prediction(as.numeric(radialSVMPredict), as.numeric(newTest$survived))
+rocRadial <- performance(numericRadialSVMPrediction, measure = "tpr", x.measure="fpr")
+plot(rocRadial)
+performance(numericRadialSVMPrediction, measure="auc")
+
+correctRegression <- newTest$survived 
+confusionMatrixRadialSVM <- table(correctRegression, radialSVMPredict)
+print(confusionMatrixRadialSVM)
+correct <- newTest$survived 
+
+accuracyScoreRadialSVM <- mean(correct == radialSVMPredict)
+print(paste0("Accuracy score of SVM with radial kernel: ", accuracyScoreRadialSVM))
+```
+
+
+
+

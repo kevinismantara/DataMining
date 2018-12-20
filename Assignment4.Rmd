@@ -1,0 +1,96 @@
+---
+title: "Programming Assignment 4"
+author: "Kevin Ismantara"
+date: '2018-12-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("arules")
+```
+
+Question 1:
+```{r}
+data <- data(Groceries)
+itemsPerTransaction <- summary(Groceries)@lengths
+plot(itemsPerTransaction, xlab="Number of Items per Transaction", ylab="Total Number of Transactions", main="Histogram")
+```
+I can see that there are more people who make frequent trips to the grocery 
+<br/>
+store, while spending less per trip. This leads me to believe that this grocery
+<br/>
+store is more of a convencience store such as 7-11, or a streetside grocery store
+<br/>
+where people only buy a few items per trip as opposed to larger supermarkets such as 
+<br/>
+T&T or Superstore. 
+
+Question 2:
+```{r}
+frequentItemSet1 <- apriori(Groceries, parameter=list(supp=0.001,target="frequent"))
+frequentItemSet2 <- apriori(Groceries, parameter=list(supp=0.01,target="frequent"))
+frequentItemSet1 #support: 0.001 - 13492 itemsets
+frequentItemSet2 #support: 0.01 - 333 itemsets
+closedFrequentItemSet1 <- apriori(Groceries, parameter = list(supp=0.001, target="closed"))
+closedFrequentItemSet2 <- apriori(Groceries, parameter = list(supp=0.01, target="closed"))
+closedFrequentItemSet1  #support: 0.001 - 13464 itemsets
+closedFrequentItemSet2  #support: 0.01 - 333 itemsets
+maximalFrequentItemSet1 <- apriori(Groceries, parameter = list(supp=0.001, target="maximal"))
+maximalFrequentItemSet2 <- apriori(Groceries, parameter = list(supp=0.01, target="maximal"))
+maximalFrequentItemSet1 # support: 0.001 - 7794 itemsets
+maximalFrequentItemSet2 # support: 0.01 - 243 itemsets
+```
+
+Question 3:
+```{r}
+sortedFrequentItemSet <- sort(frequentItemSet1)
+inspect(sortedFrequentItemSet[1:10,])
+```
+
+Question 4: 
+Based on the histogram on question 1, we can see that most of transactions that happen in the grocery store 
+<br/>
+are customers who only buy 1 item. With this information, we can expect that there would be a low frequent itemset. 
+<br/>
+This would also explain why the frequent itemsets, closed frequent itemsets, and maximal frequent itemsets
+<br/>
+are very similar to one another.
+
+Question 5: 
+```{r}
+associationRules <- apriori(Groceries, parameter = list(supp=0.01, conf=0.9 ,target="rules"))
+associationRules1 <- apriori(Groceries, parameter = list(supp=0.01, conf=0.45 ,target="rules"))
+associationRules2 <- apriori(Groceries, parameter = list(supp=0.01, conf=0.5 ,target="rules"))
+associationRules3 <- apriori(Groceries, parameter = list(supp=0.01, conf=0.55 ,target="rules"))
+associationRules4 <- apriori(Groceries, parameter = list(supp=0.01, conf=0.51 ,target="rules"))
+associationRules5 <- apriori(Groceries, parameter = list(supp=0.01, conf=0.52 ,target="rules"))
+associationRules # 0 rules
+associationRules1 # 31 rules
+associationRules2 # 15 rules
+associationRules3 # 7 rules
+associationRules4 # 12 rules
+associationRules5 # 9 rules
+```
+With a minimum confidence of 0.9, we get 0 association rules. To get at least more than 10 rules, we need to lower
+the confidence to 0.51 to get 12 rules.
+
+Question 6: 
+```{r}
+wholeMilkOnRHS <- subset(associationRules2, subset = rhs %pin% "whole milk")
+inspect(head(wholeMilkOnRHS, n=11, by="lift"))
+```
+
+Question 7: 
+<br/>
+From task 6, we can see that the top rules are as follows along with its lift: 
+<br/>
+1. (curd, yogurt) => (whole milk)  - 2.279125 
+<br/>
+2. (other vegetables, butter) => (whole milk) - 2.244885 
+<br/>
+3. (tropical fruit, root vegetables) => (whole milk) - 2.230969
+<br/>
+
+It is not surprisng to see that when a person buys curd and yogurt, they tend to buy milk as well.
+<br/>
+Part of the reason is that Milk is a rather common breakfast item that can be used in versatile ways.

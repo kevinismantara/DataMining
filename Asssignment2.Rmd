@@ -1,0 +1,124 @@
+---
+title: "Programming Assignment 2"
+author: "Kevin Ismantara"
+date: '2018-10-24'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("stats")
+library("cluster")
+library("clusteval")
+library("BBmisc")
+library("ggplot2")
+library("tree")
+```
+
+## R Markdown
+
+# Task 1: Load & Split data
+```{r}
+TitanicData <- read.csv(file="./titanic3.csv", header=TRUE, sep=",", na.strings=c("","NA"))
+set.seed(1)
+dt = sort(sample(nrow(TitanicData), nrow(TitanicData)*0.8))
+trainData <- TitanicData[dt,]
+testData <- TitanicData[-dt,]
+```
+
+# Task 2: Number of missing values
+```{r}
+colSums(is.na(trainData))
+colSums(is.na(testData))
+```
+
+# Task 3: Attributes for survival prediction
+Use attributes: Pclass, survived, sex, age, sibsp, parch, fare. 
+The other attributes do not play a factor in a person's survival. 
+
+# Task 4:
+```{r}
+trainData$age[is.na(trainData$age)] <- mean(trainData$age, na.rm=TRUE)
+testData$age[is.na(testData$age)] <- mean(testData$age, na.rm=TRUE)
+
+trainData$cabin <- NULL
+trainData$boat <- NULL
+trainData$body <- NULL
+trainData$home.dest <- NULL
+testData$cabin <- NULL
+testData$boat <- NULL
+testData$body <- NULL
+testData$home.dest <- NULL
+
+trainData <- trainData[!is.na(trainData$name),]
+trainData <- trainData[!is.na(trainData$embarked),]
+trainData <- trainData[!is.na(trainData$fare),]
+
+trainData$survived <- factor(trainData$survived)
+testData$survived <- factor(testData$survived)
+
+colSums(is.na(trainData))
+colSums(is.na(testData))
+```
+1. For the age column: replace N/A with average age
+2. Delete columns Cabin, boat, body, and home.dest
+3. Delete the row with missing name, embarked, or fare from training data. Test data has no empty rows
+
+# Task 5
+```{r}
+trainData$ticket <- NULL
+trainData$name <- NULL
+
+newTrainData <- trainData[c("survived", "pclass", "sex", "age", "sibsp",
+                            "parch", "fare", "embarked")]
+
+newTestData <- testData[c("survived", "pclass", "sex", "age", "sibsp","parch", 
+                          "fare", "embarked")]
+
+# Plot decision tree
+decisionTree <- tree(formula = survived ~. , data= newTrainData)
+plot(decisionTree)
+text(decisionTree, all=TRUE)
+summary(decisionTree)
+
+
+prediciton <- predict(decisionTree, newTestData, type="class")
+correct <- testData$survived 
+confusionMatrix <- table(correct, prediciton)
+accuracyScore <- mean(correct == prediciton)
+```
+Size of tree: 7
+Accuracy score: 77.5%
+
+# Task 6
+The top 3 most important attributes from most to least important are: pclass, sibsp, fare
+pclass is the most important attribute is because from the decision tree, we can see that 
+a decision whether or not a passenger survives is based on the pclass, whether or not they are 
+male or female. Pclass can affect the position of the cabins (higher or lower floor). This is 
+a huge factor when trying to evacuate a large ship. 
+
+Siblings also play an important factor when predicting survival, as seen from the decision tree, 
+it determines whether or not a passenger survives if they have less than 3 siblings or not. This is
+partly due to the fact that family members will not leave one another in the case of an emergency 
+and might be too late for them if they take too long to find one another
+
+Last but not least, the fare class also determines whether or not a passenger survives. This might be due 
+to the fact that passengers who are less wealthy (pay less fare) tend to have better survival skills then 
+passengers who are wealthy. 
+
+Before looking at the decision tree, I thought the greatest factor that would affect survival would be sex, age, 
+and number of siblings, however, after analyzing the decision tree, I realize that this is not true. Not only that,
+it turns out the attributes that I assumed to be the greatest factor turns out to be one of the least deciding factors.
+
+# Task 7
+```{r}
+crossValidationTree <-cv.tree(decisionTree)
+bestIndex <- which(crossValidationTree$dev == min(crossValidationTree$dev))
+optimizedTree <- crossValidationTree$size[bestIndex]
+
+prunedTree <- prune.misclass(decisionTree, best = optimizedTree)
+plot(prunedTree)
+text(decisionTree, all=TRUE)
+summary(prunedTree)
+```
+Size of pruned tree: 7
